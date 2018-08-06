@@ -1,8 +1,6 @@
 import csv
 import glob
-import math
 import numpy as np
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import time
 
@@ -37,7 +35,7 @@ def readData():
 
 def main():
     data = readData()
-    d = data["temp"][:300000]
+    d = data["temp"]
     start = time.time()
     plt.plot(d)
     plt.draw()
