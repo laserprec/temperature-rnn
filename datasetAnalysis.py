@@ -60,7 +60,7 @@ def readDataset(pathname):
         end = t.time()
         data = np.append(data, temp)
         if DEBUG: print(f"Total duration for reading {len(temp)}: {end - start:.3f}")
-    return data
+    return data.reshape(-1, 1)
 
 def getStatistic(data):
     return np.std(data), np.mean(data), data.shape
@@ -109,7 +109,6 @@ def main():
 
     start = t.time()
     fig, (ax1, ax2, ax3) = plt.subplots(3, figsize=(8, 8))
-    ax1.plot(train)
     ax1.set_title('Training Set')
     ax2.plot(validate)
     ax2.set_title('Validation Set')

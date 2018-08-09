@@ -1,64 +1,73 @@
-import glob
 import pickle
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import islice
 from rnn import RNN
 from datasetAnalysis import readDataset, TRAINING_SET, VALIDATION_SET, TEST_SET, TEST_SET_STAT
 from datagen import DataGenerator
-from preprocess import standardize, unstandardize, TRAINING_DATASIZE, VALIDATION_DATASIZE
-from train import train, loadTrainedModel, HIDDEN_NODES, LOOKBACK, WINDOW_SIZE, SAMPLERATE
-from datasetAnalysis import readDataset
+from preprocess import setup, TRAINING_DATASIZE, VALIDATION_DATASIZE
+from train import loadTrainedModel, HIDDEN_NODES, LOOKBACK, WINDOW_SIZE, SAMPLERATE, PREDICTION
 
 DEBUG = True
 
-TRAINED_MODEL = './models/hidden32_lookback24_window128_18-08-08_19:30:37.h5'
+TRAINED_MODEL = './models/working/hid32_lkb144_win128_smpr6_pred1_18-08-09_02-29-57.h5'
 
 # Loading pre-calculated statistics on the test data
 with open(TEST_SET_STAT, 'rb') as f: stat = pickle.load(f)
 TEST_DATASIZE = stat["shape"][0]
 
+def take(n, iterable):
+    "Return first n items of the iterable as a numpy array"
+    return np.block(list(islice(iterable, n))).ravel()
+
 def predict(UNTRAINED_MODEL=False):
-    if UNTRAINED_MODEL: rnn = RNN(HIDDEN_NODES, LOOKBACK, WINDOW_SIZE)
+    if UNTRAINED_MODEL: rnn = RNN(HIDDEN_NODES, LOOKBACK, WINDOW_SIZE, SAMPLERATE, 1)
     else: rnn = loadTrainedModel(TRAINED_MODEL)
 
-    trainingSet = readDataset(TRAINING_SET)
-    validationSet = readDataset(VALIDATION_SET)
+    trainingSet, validationSet, scaler = setup()
     testSet = readDataset(TEST_SET)
     
-    trainGen = DataGenerator(trainingSet, rnn.windowSize, rnn.lookBack, SAMPLERATE).generator(returnLabel=False)
-    validateGen = DataGenerator(validationSet, rnn.windowSize, rnn.lookBack, SAMPLERATE).generator(returnLabel=False)
-    testGen = DataGenerator(testSet, rnn.windowSize, rnn.lookBack, SAMPLERATE).generator(returnLabel=False)
+    trainGen = DataGenerator(trainingSet, scaler, windowSize=rnn.windowSize, 
+                            lookback=rnn.lookBack, sampleRate=SAMPLERATE)
+    validateGen = DataGenerator(validationSet, scaler, windowSize=rnn.windowSize, 
+                            lookback=rnn.lookBack, sampleRate=SAMPLERATE)
+    testGen = DataGenerator(testSet, scaler, windowSize=rnn.windowSize, 
+                            lookback=rnn.lookBack, sampleRate=SAMPLERATE)
     
-    trainStep = TRAINING_DATASIZE / rnn.windowSize
-    validateStep = VALIDATION_DATASIZE / rnn.windowSize
-    testStep = TEST_DATASIZE / rnn.windowSize
+    trainStep = int((TRAINING_DATASIZE - trainGen.maxStepIndex - trainGen.minIndex) / SAMPLERATE)
+    validateStep = int((VALIDATION_DATASIZE - validateGen.maxStepIndex - validateGen.minIndex) / SAMPLERATE)
+    testStep = int((TEST_DATASIZE - testGen.maxStepIndex - testGen.minIndex) / SAMPLERATE)
+    
+    if DEBUG: print(f"trainStep: {trainStep}, validationStep: {validateStep}, testStep: {testStep}")
 
     # Model predictions
     start = time.time()
-    trainPred = rnn.model.predict_generator(trainGen, trainStep)
+    trainPred = rnn.model.predict_generator(trainGen.generator(returnLabel=False), trainStep)
     end = time.time()
     if DEBUG: print(f"Time to make {trainPred.shape[0]} training predictions: {end - start:.3f}, shape {trainPred.shape}")
     
     start = time.time()
-    validatePred = rnn.model.predict_generator(validateGen, validateStep)
+    validatePred = rnn.model.predict_generator(validateGen.generator(returnLabel=False), validateStep)
     end = time.time()
     if DEBUG: print(f"Time to make {validatePred.shape[0]} validation predictions: {end - start:.3f}, shape {validatePred.shape}")
     
     start = time.time()
-    testPred = rnn.model.predict_generator(testGen, testStep)
+    testPred = rnn.model.predict_generator(testGen.generator(returnLabel=False), testStep)
     end = time.time()
     if DEBUG: print(f"Time to make {testPred.shape[0]} test predictions: {end - start:.3f}, shape {testPred.shape}")
-
-    # if DEBUG: print(f"Training Prediction stats: mean: {np.mean(trainPred):.3f}, std: {np.std(trainPred):.3f}" +
-    #     f" max: {trainPred.max():.3f} min: {trainPred.min():.3f} ")
-
+    
     # Undo the standardization on the predictions
-    trainPred = unstandardize(trainPred)
-    validatePred = unstandardize(validatePred)
-    testPred = unstandardize(testPred)
+    trainPred = scaler.inverse_transform(trainPred)
+    validatePred = scaler.inverse_transform(validatePred)
+    testPred = scaler.inverse_transform(testPred)
 
-    groundTruth = np.block([trainingSet, validationSet, testSet])
+    trainingTruth = trainingSet[trainGen.minIndex:-trainGen.maxStepIndex].ravel()
+    validationTruth = validationSet[validateGen.minIndex:-validateGen.maxStepIndex].ravel()
+    testTruth = testSet[testGen.minIndex:-testGen.maxStepIndex].ravel()
+    if DEBUG: print(f"trainingTruth shape: {trainingTruth.shape}, validationTruth shape: {validationTruth.shape}, testTruth shape: {testTruth.shape}")
+    
+    groundTruth = np.block([trainingTruth, validationTruth, testTruth])
 
     return trainPred, validatePred, testPred, groundTruth
 
@@ -72,10 +81,9 @@ def plotPrediction(trainPred, validatePred, testPred, groundTruth):
     testPredPlot = np.empty_like(groundTruth)
     testPredPlot.fill(np.nan)
     startIndex = trainPred.shape[0] + validatePred.shape[0]
-    # endIndex = startIndex + testPred.shape[0]
-    # print(f"ground truth length {groundTruth.shape}, startIndex {startIndex}, endIndex {endIndex}")
-    testPredPlot[startIndex:] = testPred[:testPredPlot.shape[0] - startIndex].ravel() # TODO: debug this
-    # testPredPlot[startIndex:] = testPred.ravel()
+    endIndex = startIndex + testPred.shape[0] 
+    # testPredPlot[startIndex:] = testPred[:testPredPlot.shape[0] - startIndex].ravel() # TODO: debug this
+    testPredPlot[startIndex:endIndex] = testPred.ravel()
     plt.plot(groundTruth)
     plt.plot(trainPred, alpha=0.5)
     plt.plot(validatePredPlot, alpha=0.5)

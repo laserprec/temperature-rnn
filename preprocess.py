@@ -1,6 +1,8 @@
 import glob
 import pickle
 from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
+from datasetAnalysis import readDataset, TRAINING_SET, VALIDATION_SET
 
 DEBUG = True
 
@@ -15,6 +17,13 @@ TRAINING_DATASIZE = stat["shape"][0]
 VALIDATION_SET_STAT = './data/validate/stat.pickle'
 with open(VALIDATION_SET_STAT, 'rb') as f: stat = pickle.load(f)
 VALIDATION_DATASIZE = stat["shape"][0]
+
+def setup():
+    training = readDataset(TRAINING_SET)
+    validation = readDataset(VALIDATION_SET)
+    scaler = MinMaxScaler(feature_range=(-1, 1)) # range (-1, 1) is activation region of tanh (LSTM default act. func)
+    scaler = scaler.fit(training)
+    return training, validation, scaler
 
 def parseDate(dateStr):
     """

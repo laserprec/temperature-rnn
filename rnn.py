@@ -6,15 +6,16 @@ from sklearn.metrics import mean_squared_error
 OPTIMIZERS = {'sgd', 'rmsprop', 'adadelta', 'adamax', 'nadam'}
 
 class RNN(object):
-    def __init__(self, hiddenNodes, lookBack, windowSize, sampleRate):
+    def __init__(self, hiddenNodes, lookBack, windowSize, sampleRate, prediction):
         self.hiddenNodes = int(hiddenNodes)
         self.lookBack = int(lookBack)
         self.windowSize = int(windowSize)
         self.sampleRate = int(sampleRate)
+        self.prediction = int(prediction)
 
         self.model = Sequential()
-        self.model.add(LSTM(hiddenNodes, input_shape=(1, lookBack)))
-        self.model.add(Dense(1))
+        self.model.add(LSTM(hiddenNodes, input_shape=(lookBack, 1)))
+        self.model.add(Dense(prediction))
         print(self.model.summary(), '\n')
 
     def pickOptimizer(self, optimizerName, **kwargs):
