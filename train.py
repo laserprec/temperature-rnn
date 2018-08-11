@@ -8,10 +8,11 @@ from time import gmtime, strftime, time
 # Training Hyperparameters
 EPOCHS = 20
 WINDOW_SIZE = 128
-LERNING_RATE = 0.001
-SAMPLERATE = 128
+LEARNING_RATE = 0.001
+SAMPLERATE = 6
 LOOKBACK = 144
 PREDICTION = 1
+
 STEPS_PER_EPOCH = TRAINING_DATASIZE / WINDOW_SIZE / SAMPLERATE # Calculate steps per epoch based on window size and epochs
 VALIDATION_STEP_PER_EPOCH = VALIDATION_DATASIZE / WINDOW_SIZE / SAMPLERATE
 
@@ -52,7 +53,7 @@ def main(save=True):
     validGen = DataGenerator(validationSet, scaler, windowSize=WINDOW_SIZE, lookback=LOOKBACK,
                 sampleRate=SAMPLERATE, prediction=PREDICTION).generator()
     rnn = RNN(HIDDEN_NODES, LOOKBACK, WINDOW_SIZE, SAMPLERATE, PREDICTION)
-    optimizer = rnn.pickOptimizer(OPTIMIZER, lr=LERNING_RATE)
+    optimizer = rnn.pickOptimizer(OPTIMIZER, lr=LEARNING_RATE)
     rnn.model.compile(loss=LOSS_FUNC, optimizer=optimizer)
     rnn.model.fit_generator(
             trainGen, steps_per_epoch=STEPS_PER_EPOCH, epochs=EPOCHS,
@@ -82,10 +83,10 @@ def loadTrainedModel(filename):
         
         Returns: wrapper RNN class for a Keras model (e.g. keras.models.Sequential) """
     hiddenNodes, lookback, windowSize, samplerate, prediction = parseFilename(filename)
+    
     rnn = RNN(int(hiddenNodes), int(lookback), int(windowSize), int(samplerate), int(prediction))
     rnn.load(filename)
     return rnn
 
 if __name__ == '__main__':
     main(True)
-    # loadTrainedModel(BASE_PATH + 'hidden5_lookback5_window128_08-06-17:18:15.h5')

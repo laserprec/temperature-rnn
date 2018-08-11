@@ -38,6 +38,8 @@ class RNN(object):
         try:
             self.model.load_weights(filename)
             print(f"\nLOADING model weights from {filename}\n")
+            print(f"MODEL Parmeters: {self.hiddenNodes} hiddenNodes, {self.lookBack} lookBack, " +
+                  f"{self.windowSize} windowSize, {self.sampleRate} sampleRate, {self.prediction} prediction step")
         except OSError:
             print(f"\n ERROR: No such file \"{filename}\" \n")
             exit

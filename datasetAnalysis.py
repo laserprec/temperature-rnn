@@ -18,21 +18,6 @@ TRAINING_SET_STAT = './data/train/stat.pickle'
 VALIDATION_SET_STAT = './data/validate/stat.pickle'
 TEST_SET_STAT = './data/test/stat.pickle'
 
-# def parseDate(dateStr):
-#     """
-#     Replaces datetime.strptime() for performance gain
-#     """
-#     # if DEBUG: print('dateStr[6:9]:', dateStr[6:10], '| dateStr[3:5]:', dateStr[3:5], '| dateStr[:2]:', dateStr[:3], \
-#     #                 '| dateStr[11:13]:', dateStr[11:13], '| dateStr[14:16]:', dateStr[14:16], '| dateStr[17:19]', dateStr[17:19])
-#     return datetime(
-#                 int(dateStr[6:10]),  #year
-#                 int(dateStr[3:5]),   #month
-#                 int(dateStr[:2]),    #day
-#                 int(dateStr[11:13]), #hour
-#                 int(dateStr[14:16]), #minute
-#                 int(dateStr[17:19]), #second
-#                 )
-
 def readFile(filename):
     with open(filename, newline='') as csvfile:
         row_cnt = len(csvfile.readlines()) - 1  # not counting the header row
@@ -109,6 +94,7 @@ def main():
 
     start = t.time()
     fig, (ax1, ax2, ax3) = plt.subplots(3, figsize=(8, 8))
+    ax1.plot(train)
     ax1.set_title('Training Set')
     ax2.plot(validate)
     ax2.set_title('Validation Set')
